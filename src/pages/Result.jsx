@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2canvas from 'html2canvas';
 import { questions, analysisCats, getLevel } from '../data/questions';
 import SiteFooter from '../components/SiteFooter';
+import ShareCard from '../components/ShareCard';
 
 function calcScore(answers) {
   return answers.reduce((s, a, i) => (a === null ? s : s + questions[i].options[a].score), 0);
@@ -101,15 +103,42 @@ export default function Result({ answers, gender, age, onRetry }) {
   const lv = getLevel(total);
   const analysis = getAnalysis(answers);
   const [toast, setToast] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const shareCardRef = useRef(null);
 
-  function doShare() {
-    const txt = `🌟 나의 7의 남녀 점수는 ${lv.score}점!\n${lv.emoji} ${lv.title}\n\n나도 테스트해봐!`;
-    if (navigator.share) {
-      navigator.share({ title: '7의 남녀 테스트', text: txt }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(txt)
-        .then(() => setToast('결과가 클립보드에 복사됐어요! 💌'))
-        .catch(() => setToast('공유 기능을 지원하지 않는 환경이에요'));
+  async function doShare() {
+    setSharing(true);
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+      });
+
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], '7의남녀결과.png', { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: `나의 7의 남녀 점수: ${lv.score}점` });
+        } else if (navigator.share) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = '7의남녀결과.png'; a.click();
+          URL.revokeObjectURL(url);
+          setToast('이미지 저장됐어요! 인스타 스토리에 올려보세요 📸');
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = '7의남녀결과.png'; a.click();
+          URL.revokeObjectURL(url);
+          setToast('이미지 저장됐어요! 인스타 스토리에 올려보세요 📸');
+        }
+      }, 'image/png');
+    } catch (e) {
+      setToast('공유에 실패했어요. 다시 시도해주세요.');
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -123,6 +152,7 @@ export default function Result({ answers, gender, age, onRetry }) {
     <>
       {lv.score >= 7 && <Confetti />}
       <AnimatePresence>{toast && <Toast msg={toast} onHide={() => setToast('')} />}</AnimatePresence>
+      <ShareCard ref={shareCardRef} lv={lv} gender={gender} age={age} analysis={analysis} />
 
       <div style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
@@ -232,14 +262,17 @@ export default function Result({ answers, gender, age, onRetry }) {
             whileHover={{ y: -3, boxShadow: '0 16px 40px rgba(124,58,237,.45)' }}
             whileTap={{ scale: 0.97 }}
             onClick={doShare}
+            disabled={sharing}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'linear-gradient(135deg,#7c3aed,#ec4899)',
+              background: sharing ? 'rgba(124,58,237,0.5)' : 'linear-gradient(135deg,#7c3aed,#ec4899)',
               color: '#fff', padding: '16px 38px', borderRadius: 100,
               fontSize: 15, fontWeight: 700,
+              cursor: sharing ? 'default' : 'pointer',
+              transition: 'background .2s',
             }}
           >
-            결과 공유하기 🔗
+            {sharing ? '이미지 생성 중...' : '결과 공유하기 📸'}
           </motion.button>
 
           <motion.button
