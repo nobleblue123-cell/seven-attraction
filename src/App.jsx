@@ -15,6 +15,22 @@ export default function App() {
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [answers, setAnswers] = useState([]);
+  const [sharedData, setSharedData] = useState(null);
+
+  // 공유 링크로 접속한 경우 바로 결과 화면 표시
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('r');
+    if (r) {
+      try {
+        const data = JSON.parse(decodeURIComponent(atob(r)));
+        setSharedData(data);
+        setGender(data.g);
+        setAge(data.a);
+        setScreen('result');
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => { window.scrollTo(0, 0); }, [screen]);
 
@@ -25,10 +41,12 @@ export default function App() {
   }
 
   function handleRetry() {
+    setSharedData(null);
     setScreen('landing');
     setGender('');
     setAge('');
     setAnswers([]);
+    window.history.replaceState(null, '', '/');
   }
 
   return (
@@ -54,7 +72,13 @@ export default function App() {
           {screen === 'loading' && <Loading />}
           {screen === 'ad' && <AdScreen onDone={() => setScreen('result')} />}
           {screen === 'result' && (
-            <Result answers={answers} gender={gender} age={age} onRetry={handleRetry} />
+            <Result
+              answers={answers}
+              gender={gender}
+              age={age}
+              sharedData={sharedData}
+              onRetry={handleRetry}
+            />
           )}
         </motion.div>
       </AnimatePresence>

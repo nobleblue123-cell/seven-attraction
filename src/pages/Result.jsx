@@ -20,6 +20,10 @@ function getAnalysis(answers) {
   });
 }
 
+function pctToLabel(pct) {
+  return pct >= 80 ? '매우 우수' : pct >= 60 ? '우수' : pct >= 40 ? '보통' : pct >= 20 ? '부족' : '개선 필요';
+}
+
 function Confetti() {
   const colors = ['#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f472b6'];
   return (
@@ -98,47 +102,85 @@ function AnalysisCard({ cat, delay }) {
   );
 }
 
-export default function Result({ answers, gender, age, onRetry }) {
-  const total = calcScore(answers);
+export default function Result({ answers, gender, age, sharedData, onRetry }) {
+  const isShared = !!sharedData;
+
+  // 공유 링크로 온 경우 sharedData에서, 직접 테스트한 경우 answers에서 계산
+  const total = isShared ? sharedData.s : calcScore(answers);
   const lv = getLevel(total);
-  const analysis = getAnalysis(answers);
+  const analysis = isShared
+    ? analysisCats.map((cat, i) => {
+        const pct = sharedData.p?.[i] ?? 0;
+        return { ...cat, pct, valueLabel: pctToLabel(pct) };
+      })
+    : getAnalysis(answers);
+
   const [toast, setToast] = useState('');
   const [sharing, setSharing] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
   const shareCardRef = useRef(null);
 
+  // 테스트 완료 시 결과를 URL에 인코딩해서 공유 가능하게
+  useEffect(() => {
+    if (!isShared) {
+      try {
+        const encoded = btoa(encodeURIComponent(JSON.stringify({
+          s: lv.score,
+          g: gender,
+          a: age,
+          p: analysis.map(c => c.pct),
+        })));
+        window.history.replaceState(null, '', `?r=${encoded}`);
+      } catch {}
+    }
+  }, []);
+
+  // URL 공유 (카카오톡, 문자, 링크 복사 등)
   async function doShare() {
     setSharing(true);
     try {
-      const canvas = await html2canvas(shareCardRef.current, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: null,
-        logging: false,
-      });
+      const url = window.location.href;
+      const text = `나는 ${lv.score}점짜리 사람! ${lv.emoji} ${lv.title}\n나도 테스트 해봐 →`;
+      if (navigator.share) {
+        await navigator.share({
+          title: `나의 7의 남녀 점수: ${lv.score}점`,
+          text,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setToast('링크가 복사됐어요!');
+      }
+    } catch (e) {
+      if (e?.name !== 'AbortError') setToast('공유에 실패했어요. 다시 시도해주세요.');
+    } finally {
+      setSharing(false);
+    }
+  }
 
+  // 인스타 스토리용 이미지 저장
+  async function doSaveImage() {
+    setSavingImage(true);
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        scale: 3, useCORS: true, backgroundColor: null, logging: false,
+      });
       canvas.toBlob(async (blob) => {
         const file = new File([blob], '7의남녀결과.png', { type: 'image/png' });
-
-        const siteUrl = 'https://seven-attraction.vercel.app';
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `나의 7의 남녀 점수: ${lv.score}점`,
-            text: `나는 ${lv.score}점짜리 사람! ${lv.emoji} ${lv.title}\n나도 테스트 해봐 →`,
-            url: siteUrl,
-          });
+          await navigator.share({ files: [file], title: `나의 7의 남녀 점수: ${lv.score}점` });
         } else {
-          const blobUrl = URL.createObjectURL(blob);
+          const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = blobUrl; a.download = '7의남녀결과.png'; a.click();
-          URL.revokeObjectURL(blobUrl);
+          a.href = url; a.download = '7의남녀결과.png'; a.click();
+          URL.revokeObjectURL(url);
           setToast('이미지 저장됐어요! 인스타 스토리에 올려보세요 📸');
         }
       }, 'image/png');
-    } catch (e) {
-      setToast('공유에 실패했어요. 다시 시도해주세요.');
+    } catch {
+      setToast('이미지 저장에 실패했어요.');
     } finally {
-      setSharing(false);
+      setSavingImage(false);
     }
   }
 
@@ -160,6 +202,35 @@ export default function Result({ answers, gender, age, onRetry }) {
         position: 'relative', zIndex: 1,
         maxWidth: 700, margin: '0 auto', width: '100%',
       }}>
+
+        {/* 공유 링크로 접속한 경우 배너 */}
+        {isShared && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'linear-gradient(135deg,rgba(124,58,237,.15),rgba(236,72,153,.15))',
+              border: '1px solid rgba(124,58,237,.25)',
+              borderRadius: 16, padding: '14px 20px',
+              marginBottom: 32, textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginBottom: 10 }}>
+              친구의 결과를 보고 있어요!
+            </div>
+            <button
+              onClick={onRetry}
+              style={{
+                background: 'linear-gradient(135deg,#7c3aed,#ec4899)',
+                color: '#fff', border: 'none', borderRadius: 100,
+                padding: '10px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              나도 테스트 해보기 →
+            </button>
+          </motion.div>
+        )}
+
         {/* Score header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <motion.p {...fadeUp(0)} style={{
@@ -195,14 +266,13 @@ export default function Result({ answers, gender, age, onRetry }) {
                 width: 32, height: 32, borderRadius: '50%',
                 border: n <= lv.score ? 'none' : '1.5px solid rgba(255,255,255,.1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 700,
+                fontSize: 12, fontWeight: 700,
                 background: n === lv.score
                   ? 'linear-gradient(135deg,#7c3aed,#ec4899)'
                   : n < lv.score ? 'rgba(124,58,237,.28)' : 'transparent',
                 color: n <= lv.score ? '#fff' : 'rgba(255,255,255,.25)',
                 transform: n === lv.score ? 'scale(1.25)' : 'scale(1)',
                 boxShadow: n === lv.score ? '0 8px 24px rgba(124,58,237,.55)' : 'none',
-            fontSize: 12,
               }}>
                 {n}
               </div>
@@ -284,8 +354,9 @@ export default function Result({ answers, gender, age, onRetry }) {
 
         {/* Actions */}
         <motion.div {...fadeUp(0.8)} style={{
-          display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center',
+          display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center',
         }}>
+          {/* 메인: 결과 링크 공유 */}
           <motion.button
             whileHover={{ y: -3, boxShadow: '0 16px 40px rgba(124,58,237,.45)' }}
             whileTap={{ scale: 0.97 }}
@@ -297,24 +368,47 @@ export default function Result({ answers, gender, age, onRetry }) {
               color: '#fff', padding: '16px 38px', borderRadius: 100,
               fontSize: 15, fontWeight: 700,
               cursor: sharing ? 'default' : 'pointer',
-              transition: 'background .2s',
+              transition: 'background .2s', border: 'none', width: '100%', maxWidth: 320,
+              justifyContent: 'center',
             }}
           >
-            {sharing ? '이미지 생성 중...' : '결과 공유하기 📸'}
+            {sharing ? '공유 중...' : '결과 공유하기 🔗'}
           </motion.button>
 
-          <motion.button
-            whileHover={{ background: 'rgba(255,255,255,.09)' }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onRetry}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)',
-              color: 'var(--muted)', padding: '16px 36px', borderRadius: 100, fontSize: 15,
-            }}
-          >
-            ↺ 다시 테스트
-          </motion.button>
+          <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 320 }}>
+            {/* 인스타 스토리용 이미지 저장 */}
+            <motion.button
+              whileHover={{ background: 'rgba(255,255,255,.09)' }}
+              whileTap={{ scale: 0.97 }}
+              onClick={doSaveImage}
+              disabled={savingImage}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                flex: 1,
+                background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)',
+                color: 'var(--muted)', padding: '14px 0', borderRadius: 100, fontSize: 13,
+                cursor: savingImage ? 'default' : 'pointer',
+              }}
+            >
+              {savingImage ? '저장 중...' : '📸 인스타 스토리'}
+            </motion.button>
+
+            {/* 다시 테스트 */}
+            <motion.button
+              whileHover={{ background: 'rgba(255,255,255,.09)' }}
+              whileTap={{ scale: 0.97 }}
+              onClick={onRetry}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                flex: 1,
+                background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)',
+                color: 'var(--muted)', padding: '14px 0', borderRadius: 100, fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              ↺ 다시 테스트
+            </motion.button>
+          </div>
         </motion.div>
       </div>
 
