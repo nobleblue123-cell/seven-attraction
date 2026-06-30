@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import html2canvas from 'html2canvas';
 import { questions, analysisCats, getLevel } from '../data/questions';
 import SiteFooter from '../components/SiteFooter';
-import ShareCard from '../components/ShareCard';
 
 function calcScore(answers) {
   return answers.reduce((s, a, i) => (a === null ? s : s + questions[i].options[a].score), 0);
@@ -117,7 +115,6 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
 
   const [toast, setToast] = useState('');
   const [sharing, setSharing] = useState(false);
-  const shareCardRef = useRef(null);
 
   // 테스트 완료 시 결과를 URL에 인코딩해서 공유 가능하게
   useEffect(() => {
@@ -134,36 +131,19 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
     }
   }, []);
 
-  // 이미지 + URL 동시 공유 (카톡에 사진+링크 함께 전송)
+  // 링크 공유
   async function doShare() {
     setSharing(true);
     try {
-      const canvas = await html2canvas(shareCardRef.current, {
-        scale: 3, useCORS: true, backgroundColor: null, logging: false,
-      });
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      const file = new File([blob], '7의남녀결과.png', { type: 'image/png' });
       const url = window.location.href;
       const title = `나의 7의 남녀 점수: ${lv.score}점`;
       const text = `나는 ${lv.score}점짜리 사람! ${lv.emoji} ${lv.title}\n나도 테스트 해봐 →`;
 
-      if (navigator.canShare && navigator.canShare({ files: [file], url })) {
-        // 이미지 + URL 같이 공유 → 카톡에서 사진+링크 모두 전송
-        await navigator.share({ files: [file], url, title, text });
-      } else if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        // 이미지만 공유
-        await navigator.share({ files: [file], title, text });
-      } else if (navigator.share) {
-        // URL만 공유
+      if (navigator.share) {
         await navigator.share({ url, title, text });
       } else {
-        // 데스크탑: 이미지 다운로드 + 링크 복사
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl; a.download = '7의남녀결과.png'; a.click();
-        URL.revokeObjectURL(blobUrl);
-        try { await navigator.clipboard.writeText(url); } catch {}
-        setToast('이미지 저장 + 링크 복사 완료! 📸');
+        await navigator.clipboard.writeText(url);
+        setToast('링크가 복사됐어요!');
       }
     } catch (e) {
       if (e?.name !== 'AbortError') setToast('공유에 실패했어요. 다시 시도해주세요.');
@@ -182,7 +162,6 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
     <>
       {lv.score >= 7 && <Confetti />}
       <AnimatePresence>{toast && <Toast msg={toast} onHide={() => setToast('')} />}</AnimatePresence>
-      <ShareCard ref={shareCardRef} lv={lv} gender={gender} age={age} analysis={analysis} />
 
       <div style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
@@ -221,12 +200,20 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
 
         {/* Score header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <motion.p {...fadeUp(0)} style={{
-            fontSize: 12, letterSpacing: 3, color: 'var(--muted)',
-            textTransform: 'uppercase', marginBottom: 20,
-          }}>
-            {age} {gender}자의 매력 점수
-          </motion.p>
+          <motion.div {...fadeUp(0)} style={{ marginBottom: 16 }}>
+            <span style={{
+              fontSize: 11, letterSpacing: 3, color: 'rgba(255,255,255,.3)',
+              textTransform: 'uppercase', display: 'block', marginBottom: 8,
+            }}>
+              7의 남녀 테스트
+            </span>
+            <span style={{
+              fontSize: 12, letterSpacing: 2, color: 'var(--muted)',
+              textTransform: 'uppercase',
+            }}>
+              {age} {gender}자의 매력 점수
+            </span>
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -358,7 +345,7 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
               transition: 'background .2s', border: 'none',
             }}
           >
-            {sharing ? '이미지 생성 중...' : '결과 공유하기 📸'}
+            {sharing ? '공유 중...' : '결과 공유하기 🔗'}
           </motion.button>
 
           <motion.button
