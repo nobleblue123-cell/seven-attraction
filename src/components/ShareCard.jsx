@@ -18,7 +18,7 @@ const ShareCard = forwardRef(function ShareCard({ lv, gender, age, analysis }, r
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '40px 32px',
+      padding: '40px 32px 60px',
       boxSizing: 'border-box',
       overflow: 'hidden',
     }}>
@@ -30,7 +30,7 @@ const ShareCard = forwardRef(function ShareCard({ lv, gender, age, analysis }, r
         borderRadius: '50%',
       }} />
       <div style={{
-        position: 'absolute', bottom: 40, right: -40,
+        position: 'absolute', bottom: 80, right: -40,
         width: 240, height: 240,
         background: 'radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%)',
         borderRadius: '50%',
@@ -139,12 +139,28 @@ const ShareCard = forwardRef(function ShareCard({ lv, gender, age, analysis }, r
         </div>
       )}
 
-      {/* 하단 URL */}
+      {/* 하단 CTA */}
       <div style={{
-        position: 'absolute', bottom: 24,
-        fontSize: 11, color: 'rgba(255,255,255,0.2)', letterSpacing: 1,
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        background: 'linear-gradient(135deg, rgba(124,58,237,0.9), rgba(236,72,153,0.9))',
+        padding: '14px 24px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        seven-attraction.vercel.app
+        <div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 2 }}>
+            나도 테스트 해보기
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: 0.5 }}>
+            seven-attraction.vercel.app
+          </div>
+        </div>
+        <div style={{
+          fontSize: 22, fontWeight: 900, color: '#fff',
+          background: 'rgba(255,255,255,0.2)', borderRadius: 20,
+          padding: '4px 14px',
+        }}>
+          →
+        </div>
       </div>
     </div>
   );

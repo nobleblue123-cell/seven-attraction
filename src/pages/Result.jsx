@@ -119,19 +119,19 @@ export default function Result({ answers, gender, age, onRetry }) {
       canvas.toBlob(async (blob) => {
         const file = new File([blob], '7의남녀결과.png', { type: 'image/png' });
 
+        const siteUrl = 'https://seven-attraction.vercel.app';
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: `나의 7의 남녀 점수: ${lv.score}점` });
-        } else if (navigator.share) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = '7의남녀결과.png'; a.click();
-          URL.revokeObjectURL(url);
-          setToast('이미지 저장됐어요! 인스타 스토리에 올려보세요 📸');
+          await navigator.share({
+            files: [file],
+            title: `나의 7의 남녀 점수: ${lv.score}점`,
+            text: `나는 ${lv.score}점짜리 사람! ${lv.emoji} ${lv.title}\n나도 테스트 해봐 →`,
+            url: siteUrl,
+          });
         } else {
-          const url = URL.createObjectURL(blob);
+          const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = url; a.download = '7의남녀결과.png'; a.click();
-          URL.revokeObjectURL(url);
+          a.href = blobUrl; a.download = '7의남녀결과.png'; a.click();
+          URL.revokeObjectURL(blobUrl);
           setToast('이미지 저장됐어요! 인스타 스토리에 올려보세요 📸');
         }
       }, 'image/png');
