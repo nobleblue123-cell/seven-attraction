@@ -117,7 +117,6 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
 
   const [toast, setToast] = useState('');
   const [sharing, setSharing] = useState(false);
-  const [savingImage, setSavingImage] = useState(false);
   const shareCardRef = useRef(null);
 
   // 테스트 완료 시 결과를 URL에 인코딩해서 공유 가능하게
@@ -135,52 +134,41 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
     }
   }, []);
 
-  // URL 공유 (카카오톡, 문자, 링크 복사 등)
+  // 이미지 + URL 동시 공유 (카톡에 사진+링크 함께 전송)
   async function doShare() {
     setSharing(true);
     try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        scale: 3, useCORS: true, backgroundColor: null, logging: false,
+      });
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], '7의남녀결과.png', { type: 'image/png' });
       const url = window.location.href;
+      const title = `나의 7의 남녀 점수: ${lv.score}점`;
       const text = `나는 ${lv.score}점짜리 사람! ${lv.emoji} ${lv.title}\n나도 테스트 해봐 →`;
-      if (navigator.share) {
-        await navigator.share({
-          title: `나의 7의 남녀 점수: ${lv.score}점`,
-          text,
-          url,
-        });
+
+      if (navigator.canShare && navigator.canShare({ files: [file], url })) {
+        // 이미지 + URL 같이 공유 → 카톡에서 사진+링크 모두 전송
+        await navigator.share({ files: [file], url, title, text });
+      } else if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // 이미지만 공유
+        await navigator.share({ files: [file], title, text });
+      } else if (navigator.share) {
+        // URL만 공유
+        await navigator.share({ url, title, text });
       } else {
-        await navigator.clipboard.writeText(url);
-        setToast('링크가 복사됐어요!');
+        // 데스크탑: 이미지 다운로드 + 링크 복사
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl; a.download = '7의남녀결과.png'; a.click();
+        URL.revokeObjectURL(blobUrl);
+        try { await navigator.clipboard.writeText(url); } catch {}
+        setToast('이미지 저장 + 링크 복사 완료! 📸');
       }
     } catch (e) {
       if (e?.name !== 'AbortError') setToast('공유에 실패했어요. 다시 시도해주세요.');
     } finally {
       setSharing(false);
-    }
-  }
-
-  // 인스타 스토리용 이미지 저장
-  async function doSaveImage() {
-    setSavingImage(true);
-    try {
-      const canvas = await html2canvas(shareCardRef.current, {
-        scale: 3, useCORS: true, backgroundColor: null, logging: false,
-      });
-      canvas.toBlob(async (blob) => {
-        const file = new File([blob], '7의남녀결과.png', { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: `나의 7의 남녀 점수: ${lv.score}점` });
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = '7의남녀결과.png'; a.click();
-          URL.revokeObjectURL(url);
-          setToast('이미지 저장됐어요! 인스타 스토리에 올려보세요 📸');
-        }
-      }, 'image/png');
-    } catch {
-      setToast('이미지 저장에 실패했어요.');
-    } finally {
-      setSavingImage(false);
     }
   }
 
@@ -354,9 +342,8 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
 
         {/* Actions */}
         <motion.div {...fadeUp(0.8)} style={{
-          display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center',
+          display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center',
         }}>
-          {/* 메인: 결과 링크 공유 */}
           <motion.button
             whileHover={{ y: -3, boxShadow: '0 16px 40px rgba(124,58,237,.45)' }}
             whileTap={{ scale: 0.97 }}
@@ -368,47 +355,25 @@ export default function Result({ answers, gender, age, sharedData, onRetry }) {
               color: '#fff', padding: '16px 38px', borderRadius: 100,
               fontSize: 15, fontWeight: 700,
               cursor: sharing ? 'default' : 'pointer',
-              transition: 'background .2s', border: 'none', width: '100%', maxWidth: 320,
-              justifyContent: 'center',
+              transition: 'background .2s', border: 'none',
             }}
           >
-            {sharing ? '공유 중...' : '결과 공유하기 🔗'}
+            {sharing ? '이미지 생성 중...' : '결과 공유하기 📸'}
           </motion.button>
 
-          <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 320 }}>
-            {/* 인스타 스토리용 이미지 저장 */}
-            <motion.button
-              whileHover={{ background: 'rgba(255,255,255,.09)' }}
-              whileTap={{ scale: 0.97 }}
-              onClick={doSaveImage}
-              disabled={savingImage}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                flex: 1,
-                background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)',
-                color: 'var(--muted)', padding: '14px 0', borderRadius: 100, fontSize: 13,
-                cursor: savingImage ? 'default' : 'pointer',
-              }}
-            >
-              {savingImage ? '저장 중...' : '📸 인스타 스토리'}
-            </motion.button>
-
-            {/* 다시 테스트 */}
-            <motion.button
-              whileHover={{ background: 'rgba(255,255,255,.09)' }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onRetry}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                flex: 1,
-                background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)',
-                color: 'var(--muted)', padding: '14px 0', borderRadius: 100, fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              ↺ 다시 테스트
-            </motion.button>
-          </div>
+          <motion.button
+            whileHover={{ background: 'rgba(255,255,255,.09)' }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onRetry}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)',
+              color: 'var(--muted)', padding: '16px 36px', borderRadius: 100, fontSize: 15,
+              cursor: 'pointer',
+            }}
+          >
+            ↺ 다시 테스트
+          </motion.button>
         </motion.div>
       </div>
 
