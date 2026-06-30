@@ -3,17 +3,17 @@ import { motion } from 'framer-motion';
 
 const TOTAL = 5;
 
-// ↓ AdSense 승인 후 본인 값으로 교체
 const AD_CLIENT = 'ca-pub-8143724185524580';
-const AD_SLOT   = 'XXXXXXXXXX';
+const AD_SLOT   = 'XXXXXXXXXX'; // AdSense 승인 후 교체
 
 export default function AdScreen({ onDone }) {
   const [seconds, setSeconds] = useState(TOTAL);
-  const adRef = useRef(false);
+  const adsenseRef = useRef(false);
+  const adfitRef = useRef(null);
 
   useEffect(() => {
-    if (!adRef.current) {
-      adRef.current = true;
+    if (!adsenseRef.current) {
+      adsenseRef.current = true;
       try {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
       } catch {}
@@ -42,6 +42,28 @@ export default function AdScreen({ onDone }) {
         잠깐 광고를 확인해주세요
       </motion.p>
 
+      {/* 카카오 애드핏 */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        style={{
+          width: '100%', maxWidth: 360,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 16,
+        }}
+      >
+        <ins
+          ref={adfitRef}
+          className="kakao_ad_area"
+          style={{ display: 'none' }}
+          data-ad-unit="DAN-qiZSlb9dWeQeU5Z5"
+          data-ad-width="320"
+          data-ad-height="100"
+        />
+      </motion.div>
+
+      {/* 구글 애드센스 (승인 후 활성화) */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
