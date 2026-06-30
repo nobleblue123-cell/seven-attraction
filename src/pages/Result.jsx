@@ -232,6 +232,34 @@ export default function Result({ answers, gender, age, onRetry }) {
           ))}
         </div>
 
+        {/* Ad Banner — 분석 그리드 아래 */}
+        <motion.div {...fadeUp(0.68)} style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          marginBottom: 24,
+        }}>
+          <span style={{
+            fontSize: 10, color: 'rgba(255,255,255,.15)',
+            letterSpacing: 1, marginBottom: 8,
+          }}>
+            광고
+          </span>
+          <div style={{
+            width: 320, minHeight: 100,
+            background: 'rgba(255,255,255,.03)',
+            border: '1px solid rgba(255,255,255,.06)',
+            borderRadius: 14, overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <ins
+              className="kakao_ad_area"
+              style={{ display: 'none' }}
+              data-ad-unit="DAN-qiZSlb9dWeQeU5Z5"
+              data-ad-width="320"
+              data-ad-height="100"
+            />
+          </div>
+        </motion.div>
+
         {/* Advice */}
         <motion.div {...fadeUp(0.72)} style={{
           background: 'linear-gradient(135deg,rgba(124,58,237,.08),rgba(236,72,153,.08))',
